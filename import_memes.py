@@ -1,6 +1,10 @@
 import sqlite3
 import json
+import os
 
+current_dir = os.path.dirname(__file__)
+json_path = os.path.join(current_dir, 'data_base', 'memes_base.json')#это рассчитано на структуру, в котрой хранятся сейчас файлы на ГХ 
+                                                                    #(json-ы хранятся в папке data_base)            
 conn = sqlite3.connect('memes.db')
 cursor = conn.cursor()
 
@@ -14,7 +18,7 @@ CREATE TABLE IF NOT EXISTS memes (
 );
 ''')
 
-with open('/mnt/c/Users/user/Documents/sqlite/work/memes_base.json', 'r', encoding='utf-8') as f:
+with open(json_path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
 for i in range(1, len(lines)):
