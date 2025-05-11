@@ -12,9 +12,7 @@ from dotenv import load_dotenv
 import os
 from config import Texts
 
-# Load environment variables
 load_dotenv()
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -145,8 +143,7 @@ async def process_count(message: types.Message, state: FSMContext):
             await message.answer(Texts.no_memes_found)
             await state.set_state(MemeStates.waiting_for_topic)
             return
-        else:
-            await message.answer(
+        await message.answer(
                 f"{Texts.memes_found.format(sent_count)} (всего доступно: {len(all_matching_memes)})."
             )
     else:
