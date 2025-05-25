@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS memes (
 );
 ''')
 
-json_path = './data_base/memes_base.json'  # Относительный путь, лучше предыдущего варианта 
+json_path = './data_base/memes_base.json'  # Относительный путь, лучше предыдущего варианта
 with open(json_path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
