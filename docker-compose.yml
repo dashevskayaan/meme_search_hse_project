@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+    volumes:
+
+  memes_bot:
+    build: .
+    depends_on:
+      - elasticsearch
+    environment:
+      - ES_HOST=elasticsearch
+      - BOT_TOKEN=${BOT_TOKEN}
+    volumes:
+
+volumes:
+  es_data:
