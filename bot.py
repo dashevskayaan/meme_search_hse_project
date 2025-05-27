@@ -11,6 +11,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from dotenv import load_dotenv
 import os
 from config import Texts
+from config import ES_HOST, ES_PORT, ES_INDEX
 from elasticsearch_utils import ElasticsearchManager
 
 es_manager = ElasticsearchManager()
