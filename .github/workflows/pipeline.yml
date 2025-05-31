@@ -1,7 +1,13 @@
 name: Code Check
 
-on: [push, pull_request]
-
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      
 jobs:
   quality-check:
     runs-on: ubuntu-latest
@@ -15,28 +21,15 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Установка flake8 и black
+    - name: Установка ruff
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 black
+        pip install ruff
 
-    - name: Проверка синтаксиса
+    - name: Автоформатирование с помощью ruff
       run: |
-        python -m compileall .
+        ruff format .
 
-    - name: Автоформатирование с black
+    - name: Проверка синтаксиса и стиля с помощью ruff
       run: |
-        black . --exclude 'memes\.db' 
-    
-    # Код выше форматирует, 
-    # Если потом захотим заменить на просто проверку:
-    # black . --check --exclude 'memes\.db'
-
-    - name: Проверка стиля с flake8
-      run: |
-        flake8 . --exclude=memes.db,__pycache__,.venv
-
-    # - name: Запуск тестов #когда добавим тесты, они должны или храниться в ./tests или начинаться с test_*.py
-    #   run: |
-    #     pip install pytest
-    #     pytest
+        ruff check .
