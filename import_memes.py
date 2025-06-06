@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS memes (
 ''')
 
 json_path = './data_base/memes_base.json'  
+
 with open(json_path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
@@ -25,14 +26,16 @@ for i in range(1, len(lines)):
     try:
         meme = json.loads(line)
         image = meme.get('images', '-')
+        
         """
         Обновляет базу данных. Если какой-то id был изменен,
         то меняет на новую версию.
         """
+        
         cursor.execute('''
             INSERT INTO memes (id, name, image, description, tags)
             VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET 
+            ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 image = excluded.image,
                 description = excluded.description,
