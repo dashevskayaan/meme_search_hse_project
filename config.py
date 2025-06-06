@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 
 @dataclass
 class Texts:
@@ -44,9 +45,13 @@ class Texts:
     enter_count = "Сколько мемов показать?"
     memes_found = "Мемов найдено: {}"
     no_memes_found = "По вашему запросу ничего не найдено, пожалуйста, выберите другую тему"
-    all_memes_viewed = "Вы уже просмотрели все мемы по этой теме, начните новый поиск."
-    search_completed = "Поиск завершён. Нажмите /start для нового поиска."
+    all_memes_viewed = "Вы уже просмотрели все мемы по этой теме. Начните новый поиск."
+    search_completed = "Поиск завершён. Напишите /start для нового поиска."
     max_memes_limit = "Установлено максимальное значение - 20 мемов"
     positive_number = "Число должно быть положительным"
     enter_number = "Пожалуйста, введите число"
     use_buttons = "Пожалуйста, используйте кнопки для выбора действия"
+
+ES_HOST = os.getenv("ES_HOST", "localhost")
+ES_PORT = int(os.getenv("ES_PORT", 9200))
+ES_INDEX = os.getenv("ES_INDEX", "first_index")
