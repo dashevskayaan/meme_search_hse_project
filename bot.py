@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 import random
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -9,9 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from dotenv import load_dotenv
-import os
 from config import Texts
-from config import ES_HOST, ES_PORT, ES_INDEX
 from elasticsearch_utils import ElasticsearchManager
 
 es_manager = ElasticsearchManager()
@@ -112,10 +111,10 @@ async def process_count(message: types.Message, state: FSMContext):
     with sqlite3.connect('memes.db') as conn:
         cursor = conn.cursor()
         placeholders = ','.join(['?'] * len(meme_ids))
-        cursor.execute(f'''
+        cursor.execute(f"""
             SELECT id, image, name, description FROM memes 
             WHERE id IN ({placeholders})
-        ''', meme_ids)
+        """, meme_ids)
         all_matching_memes = cursor.fetchall()
 
     if not all_matching_memes:
@@ -175,10 +174,11 @@ async def process_action(message: types.Message, state: FSMContext):
             await ask_for_action(message, state)
             return
         await message.answer(
-            f"Сколько ещё мемов по теме '{user_data['last_topic']}'? (доступно: {total_memes - shown_count})", 
+            f"Сколько ещё мемов по теме '{user_data['last_topic']}'? (доступно: {total_memes - shown_count})",
             reply_markup=ReplyKeyboardRemove()
         )
         await state.set_state(MemeStates.waiting_for_count)
+
     elif message.text in [Texts.new_theme, Texts.start_search]:
         await state.update_data(shown_memes=[])
         await message.answer(
@@ -186,9 +186,10 @@ async def process_action(message: types.Message, state: FSMContext):
             reply_markup=ReplyKeyboardRemove()
         )
         await state.set_state(MemeStates.waiting_for_topic)
+
     elif message.text == Texts.end_search:
         await message.answer(
-            Texts.search_completed, 
+            Texts.search_completed,
             reply_markup=ReplyKeyboardRemove()
         )
         await state.clear()
