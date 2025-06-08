@@ -84,7 +84,7 @@ def parse_href(url,tags_dict):
         f.write("\n")
         
 def search(es_object, index_name, search):
-    res = es_object.search(index=index_name, body=search)
+    return es_object.search(index=index_name, body=search)
 
 if __name__ == '__main__':
     base_url = "https://memepedia.ru/category/memes/pic/page/"
