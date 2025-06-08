@@ -4,6 +4,9 @@ import requests
 import os
 from urllib.parse import urlparse
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 minio_client = Minio(
     "s3.ru1.storage.beget.cloud",
