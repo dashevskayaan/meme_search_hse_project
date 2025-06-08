@@ -14,6 +14,8 @@ from config import Texts
 from elasticsearch_utils import ElasticsearchManager
 
 es_manager = ElasticsearchManager()
+es_manager.initialize_index()
+es_manager.sync_from_sqlite()
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
