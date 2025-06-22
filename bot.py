@@ -14,8 +14,8 @@ from config import Texts
 from elasticsearch_utils import ElasticsearchManager
 
 es_manager = ElasticsearchManager()
-es_manager.initialize_index()
-es_manager.sync_from_sqlite()
+es_manager.initialize_elasticsearch()
+es_manager.sync_db_to_elasticsearch()
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -104,7 +104,9 @@ async def process_count(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
     topic = user_data['topic']
 
-    meme_ids = es_manager.find_in_elastic(topic, size=100)
+    search_results = es_manager.search_with_hybrid(topic, k=100)
+    meme_ids = [int(r['id']) for r in search_results]
+
     if not meme_ids:
         await message.answer(Texts.no_memes_found)
         await state.set_state(MemeStates.waiting_for_topic)
