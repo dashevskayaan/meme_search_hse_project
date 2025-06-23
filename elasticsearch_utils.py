@@ -7,6 +7,8 @@ from openai import OpenAI
 from config_openai import OPENAI_API_KEY
 from config import ES_HOST, ES_PORT
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ElasticsearchManager:
     def __init__(self, db_path: str = 'memes.db'):
