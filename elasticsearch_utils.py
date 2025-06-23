@@ -4,7 +4,7 @@ import logging
 from typing import List, Dict, Optional
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from config import OPENAI_API_KEY, ES_HOST, ES_PORT
+from config_openai import OPENAI_API_KEY, ES_HOST, ES_PORT
 
 
 class ElasticsearchManager:
