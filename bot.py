@@ -1,21 +1,17 @@
 import logging
-import sqlite3
-import random
 import os
-from aiogram import Bot, Dispatcher, types
+import random
+import sqlite3
+from dotenv import load_dotenv
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
-from dotenv import load_dotenv
 from config import Texts
 from elasticsearch_utils import ElasticsearchManager
-
-es_manager = ElasticsearchManager()
-es_manager.initialize_elasticsearch()
-es_manager.sync_db_to_elasticsearch()
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -26,10 +22,15 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+es_manager = ElasticsearchManager()
+es_manager.initialize_elasticsearch()
+es_manager.sync_db_to_elasticsearch()
+
 class MemeStates(StatesGroup):
     waiting_for_topic = State()
     waiting_for_count = State()
     waiting_for_action = State()
+    waiting_for_meme_number = State()
 
 async def send_meme_with_description(chat_id: int, meme_data: tuple) -> bool:
     meme_id, image, name, description = meme_data
@@ -50,12 +51,52 @@ async def send_meme_with_description(chat_id: int, meme_data: tuple) -> bool:
         logger.error(f"Ошибка отправки мема {meme_id}: {e}")
         return False
 
+async def send_meme_by_id(chat_id: int, meme_id: int):
+    actual_id = meme_id if 1 <= meme_id <= 1122 else meme_id % 1122 or 1122
+    with sqlite3.connect('memes.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, image, name, description FROM memes WHERE id = ?",
+            (actual_id,)
+        )
+        meme = cursor.fetchone()
+    if meme:
+        await send_meme_with_description(chat_id, meme)
+    else:
+        await bot.send_message(chat_id, "Мем не найден!")
+
 @dp.message(Command("start"))
-async def cmd_start(message: types.Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(Texts.start_message, parse_mode='HTML')
+    builder = ReplyKeyboardBuilder()
+    builder.button(text=Texts.random_meme_button)
+    builder.button(text=Texts.start_search)
+    await message.answer(
+        Texts.start_message,
+        reply_markup=builder.as_markup(resize_keyboard=True),
+        parse_mode='HTML'
+    )
+
+@dp.message(F.text == Texts.start_search)
+async def handle_start_search(message: Message, state: FSMContext):
     await message.answer(Texts.enter_topic, reply_markup=ReplyKeyboardRemove())
     await state.set_state(MemeStates.waiting_for_topic)
+
+@dp.message(F.text == Texts.random_meme_button)
+async def handle_random_meme_button(message: types.Message, state: FSMContext):
+    await message.answer(Texts.enter_number_for_meme, reply_markup=ReplyKeyboardRemove())
+    await state.set_state(MemeStates.waiting_for_meme_number)
+
+@dp.message(F.text.isdigit(), MemeStates.waiting_for_meme_number)
+async def handle_meme_number_input(message: types.Message, state: FSMContext):
+    number = int(message.text)
+    await send_meme_by_id(message.chat.id, number)
+    await ask_for_action(message, state)
+
+@dp.message(Command("random_meme"))
+async def cmd_random_meme(message: types.Message, state: FSMContext):
+    await state.set_state(MemeStates.waiting_for_meme_number)
+    await message.answer("Введите число:", reply_markup=ReplyKeyboardRemove())
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message, state: FSMContext):
@@ -185,17 +226,11 @@ async def process_action(message: types.Message, state: FSMContext):
 
     elif message.text in [Texts.new_theme, Texts.start_search]:
         await state.update_data(shown_memes=[])
-        await message.answer(
-            Texts.enter_topic,
-            reply_markup=ReplyKeyboardRemove()
-        )
+        await message.answer(Texts.enter_topic, reply_markup=ReplyKeyboardRemove())
         await state.set_state(MemeStates.waiting_for_topic)
 
     elif message.text == Texts.end_search:
-        await message.answer(
-            Texts.search_completed,
-            reply_markup=ReplyKeyboardRemove()
-        )
+        await message.answer(Texts.search_completed, reply_markup=ReplyKeyboardRemove())
         await state.clear()
     else:
         await message.answer(Texts.use_buttons)
