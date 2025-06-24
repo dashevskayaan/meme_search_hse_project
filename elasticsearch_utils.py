@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import logging
-from typing import List, Dict, Optional
+from typing import List, Optional
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 from config_openai import OPENAI_API_KEY
