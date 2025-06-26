@@ -33,6 +33,9 @@ class MemeStates(StatesGroup):
     waiting_for_meme_number = State()
 
 async def send_meme_with_description(chat_id: int, meme_data: tuple) -> bool:
+    """
+    Отправляет мем (фото + описание) пользователю по chat_id.
+    """
     meme_id, image, name, description = meme_data
     try:
         await bot.send_photo(
@@ -52,6 +55,9 @@ async def send_meme_with_description(chat_id: int, meme_data: tuple) -> bool:
         return False
 
 async def send_meme_by_id(chat_id: int, meme_id: int):
+    """
+    Отправляет мем по его ID. ID корректируется по модулю 1122, если выходит за пределы.
+    """
     actual_id = meme_id if 1 <= meme_id <= 1122 else meme_id % 1122 or 1122
     with sqlite3.connect('memes.db') as conn:
         cursor = conn.cursor()
@@ -67,6 +73,9 @@ async def send_meme_by_id(chat_id: int, meme_id: int):
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
+    """
+    Обрабатывает команду /start — показывает стартовое сообщение и кнопки.
+    """
     await state.clear()
     builder = ReplyKeyboardBuilder()
     builder.button(text=Texts.random_meme_button)
@@ -79,31 +88,49 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @dp.message(F.text == Texts.start_search)
 async def handle_start_search(message: Message, state: FSMContext):
+    """
+    Начинает процесс поиска мемов по теме.
+    """
     await message.answer(Texts.enter_topic, reply_markup=ReplyKeyboardRemove())
     await state.set_state(MemeStates.waiting_for_topic)
 
 @dp.message(F.text == Texts.random_meme_button)
 async def handle_random_meme_button(message: types.Message, state: FSMContext):
+    """
+    Обрабатывает кнопку случайного мема — просит ввести номер мема.
+    """
     await message.answer(Texts.enter_number_for_meme, reply_markup=ReplyKeyboardRemove())
     await state.set_state(MemeStates.waiting_for_meme_number)
 
 @dp.message(F.text.isdigit(), MemeStates.waiting_for_meme_number)
 async def handle_meme_number_input(message: types.Message, state: FSMContext):
+    """
+    Получает номер мема от пользователя и отправляет соответствующий мем.
+    """
     number = int(message.text)
     await send_meme_by_id(message.chat.id, number)
     await ask_for_action(message, state)
 
 @dp.message(Command("random_meme"))
 async def cmd_random_meme(message: types.Message, state: FSMContext):
+    """
+    Обрабатывает команду /random_meme — переводит в состояние ввода номера мема.
+    """
     await state.set_state(MemeStates.waiting_for_meme_number)
     await message.answer("Введите число:", reply_markup=ReplyKeyboardRemove())
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message, state: FSMContext):
+    """
+    Обрабатывает команду /help — отправляет инструкцию.
+    """
     await message.answer(Texts.help_message, parse_mode='HTML')
     await ask_for_action(message, state)
 
 async def ask_for_action(message: types.Message, state: FSMContext):
+    """
+    Показывает пользователю клавиатуру с действиями
+    """
     builder = ReplyKeyboardBuilder()
     builder.button(text=Texts.more_memes)
     builder.button(text=Texts.new_theme)
@@ -116,6 +143,9 @@ async def ask_for_action(message: types.Message, state: FSMContext):
 
 @dp.message(MemeStates.waiting_for_topic)
 async def process_topic(message: types.Message, state: FSMContext):
+    """
+    Обрабатывает введённую пользователем тему для поиска мемов.
+    """
     topic = message.text.strip()
     if not topic:
         await message.answer(Texts.enter_topic)
@@ -130,6 +160,10 @@ async def process_topic(message: types.Message, state: FSMContext):
 
 @dp.message(MemeStates.waiting_for_count)
 async def process_count(message: types.Message, state: FSMContext):
+    """
+    Обрабатывает количество запрошенных мемов, выполняет поиск через Elasticsearch
+    и отправляет мемы по результатам поиска.
+    """
     try:
         requested_count = int(message.text)
         if requested_count <= 0:
@@ -210,6 +244,9 @@ async def process_count(message: types.Message, state: FSMContext):
 
 @dp.message(MemeStates.waiting_for_action)
 async def process_action(message: types.Message, state: FSMContext):
+    """
+    Обрабатывает выбор действия пользователя после получения мемов.
+    """
     if message.text == Texts.more_memes:
         user_data = await state.get_data()
         shown_count = len(user_data.get('shown_memes', []))
@@ -236,8 +273,12 @@ async def process_action(message: types.Message, state: FSMContext):
         await message.answer(Texts.use_buttons)
 
 async def main():
+    """
+    Запускает polling Telegram-бота.
+    """
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
     import asyncio
     asyncio.run(main())
+    
