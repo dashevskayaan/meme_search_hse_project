@@ -39,7 +39,7 @@ jobs:
     services:
       elasticsearch:
         image: elasticsearch:8.14.0
-        environment:
+        env:
           discovery.type: single-node
           xpack.security.enabled: false
         ports:
