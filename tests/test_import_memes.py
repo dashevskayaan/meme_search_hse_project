@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, mock_open, MagicMock, call
+from unittest.mock import patch, mock_open, call
 
 from import_memes import update_database_from_jsonl
 

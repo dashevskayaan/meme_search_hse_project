@@ -1,6 +1,6 @@
 import pytest
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 os.environ['BOT_TOKEN'] = '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11'
 

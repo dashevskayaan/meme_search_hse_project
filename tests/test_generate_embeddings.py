@@ -1,4 +1,3 @@
-import pytest
 import sqlite3
 import json
 from unittest.mock import patch, MagicMock, call
