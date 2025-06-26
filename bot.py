@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import sqlite3
+import asyncio 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -21,10 +22,6 @@ API_TOKEN = os.getenv('BOT_TOKEN')
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
-
-es_manager = ElasticsearchManager()
-es_manager.initialize_elasticsearch()
-es_manager.sync_db_to_elasticsearch()
 
 class MemeStates(StatesGroup):
     waiting_for_topic = State()
@@ -145,14 +142,16 @@ async def process_count(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
     topic = user_data['topic']
 
+    es_manager = ElasticsearchManager()
     search_results = es_manager.search_with_hybrid(topic, k=100)
+
     meme_ids = [int(r['id']) for r in search_results]
 
     if not meme_ids:
         await message.answer(Texts.no_memes_found)
         await state.set_state(MemeStates.waiting_for_topic)
         return
-
+    
     with sqlite3.connect('memes.db') as conn:
         cursor = conn.cursor()
         placeholders = ','.join(['?'] * len(meme_ids))
@@ -236,6 +235,12 @@ async def process_action(message: types.Message, state: FSMContext):
         await message.answer(Texts.use_buttons)
 
 async def main():
+    logger.info("Инициализация зависимостей...")
+    es_manager = ElasticsearchManager()
+    es_manager.initialize_elasticsearch()
+    es_manager.sync_db_to_elasticsearch()
+    logger.info("Инициализация завершена. Запуск бота...")
+
     await dp.start_polling(bot)
 
 if __name__ == '__main__':

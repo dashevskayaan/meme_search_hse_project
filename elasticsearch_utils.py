@@ -14,8 +14,8 @@ class ElasticsearchManager:
     def __init__(self, db_path: str = 'memes.db'):
         self.db_path = db_path
         self.es = Elasticsearch(
-            [{'host': ES_HOST, 'port': ES_PORT}],
-            timeout=30,
+            hosts=[f"http://{ES_HOST}:{ES_PORT}"], # Формат hosts изменился (у нас версия >7)
+            request_timeout=30,                    # 'timeout' стал 'request_timeout'
             max_retries=3,
             retry_on_timeout=True
         )
