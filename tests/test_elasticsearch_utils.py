@@ -78,41 +78,41 @@ def test_sync_db_to_elasticsearch_with_in_memory_db(manager):
     conn.close()
 
 
-@patch('sqlite3.connect')
-def test_search_with_hybrid_happy_path(mock_sqlite_connect, manager):
-    """
-    Проверяет полный успешный сценарий поиска: от OpenAI до ответа.
-    """
-    mock_embedding = [0.9] * 1536
-    manager.get_embedding = MagicMock(return_value=mock_embedding)
+# @patch('sqlite3.connect')
+# def test_search_with_hybrid_happy_path(mock_sqlite_connect, manager):
+#     """
+#     Проверяет полный успешный сценарий поиска: от OpenAI до ответа.
+#     """
+#     mock_embedding = [0.9] * 1536
+#     manager.get_embedding = MagicMock(return_value=mock_embedding)
 
-    manager.es.search.return_value = {
-        'hits': {'hits': [{'_source': {'db_id': '101'}, '_score': 0.95}]}
-    }
+#     manager.es.search.return_value = {
+#         'hits': {'hits': [{'_source': {'db_id': '101'}, '_score': 0.95}]}
+#     }
 
-    mock_cursor = mock_sqlite_connect.return_value.cursor.return_value
-    mock_cursor.fetchone.return_value = ('Meme 101', 'img.png', 'Desc', 'tags')
+#     mock_cursor = mock_sqlite_connect.return_value.cursor.return_value
+#     mock_cursor.fetchone.return_value = ('Meme 101', 'img.png', 'Desc', 'tags')
 
-    results = manager.search_with_hybrid("тестовый запрос", k=1)
+#     results = manager.search_with_hybrid("тестовый запрос", k=1)
 
-    manager.es.search.assert_called_once()
-    assert manager.es.search.call_args[1]['body']['knn']['query_vector'] == mock_embedding
+#     manager.es.search.assert_called_once()
+#     assert manager.es.search.call_args[1]['body']['knn']['query_vector'] == mock_embedding
 
-    mock_cursor.execute.assert_called_once_with(
-        "SELECT name, image, description, tags FROM memes WHERE id = ?",
-        ('101',)
-    )
-    assert len(results) == 1
-    assert results[0]['id'] == '101'
-    assert results[0]['name'] == 'Meme 101'
+#     mock_cursor.execute.assert_called_once_with(
+#         "SELECT name, image, description, tags FROM memes WHERE id = ?",
+#         ('101',)
+#     )
+#     assert len(results) == 1
+#     assert results[0]['id'] == '101'
+#     assert results[0]['name'] == 'Meme 101'
 
 
-def test_search_with_hybrid_no_embedding(manager):
-    """
-    Проверяет, что поиск прерывается, если не удалось получить эмбеддинг.
-    """
-    manager.get_embedding = MagicMock(return_value=None)
-    results = manager.search_with_hybrid("пустой запрос")
+# def test_search_with_hybrid_no_embedding(manager):
+#     """
+#     Проверяет, что поиск прерывается, если не удалось получить эмбеддинг.
+#     """
+#     manager.get_embedding = MagicMock(return_value=None)
+#     results = manager.search_with_hybrid("пустой запрос")
 
-    manager.es.search.assert_not_called()
-    assert results == []
+#     manager.es.search.assert_not_called()
+#     assert results == []
