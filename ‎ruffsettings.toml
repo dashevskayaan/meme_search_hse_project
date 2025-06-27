@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 100
+exclude = [
+    "memes.db",
+    "__pycache__",
+    ".venv"
+]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F"]  
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
