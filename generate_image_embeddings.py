@@ -14,10 +14,20 @@ model, _, preprocess = open_clip.create_model_and_transforms(
 model.eval()
 
 DB_PATH = "memes.db"
-BATCH_PAUSE = 50  
-PAUSE_SECONDS = 15 
+BATCH_PAUSE = 50      
+PAUSE_SECONDS = 15    
 
-def get_clip_image_embedding(url: str) -> list:
+
+def get_clip_image_embedding(url: str) -> list | None:
+    """
+    Получает эмбеддинг изображения с помощью модели OpenCLIP.
+
+    Args:
+        url (str): Ссылка на изображение.
+
+    Returns:
+        list | None: Список эмбеддингов изображения, либо None в случае ошибки.
+    """
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
@@ -32,7 +42,15 @@ def get_clip_image_embedding(url: str) -> list:
         print(f"[!] Ошибка обработки {url}: {e}")
         return None
 
+
 def main():
+    """
+    Основная функция:
+    Добавляет колонку image_embedding в базу (если её нет).
+    Получает список мемов без эмбеддинга.
+    Для каждого мема получает эмбеддинг и сохраняет в базу.
+    Делает паузы каждые BATCH_PAUSE итераций.
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
