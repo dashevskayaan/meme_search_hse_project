@@ -58,8 +58,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        # Убедитесь, что emoji и pytest-asyncio есть в requirements.txt
-        # pip install emoji pytest pytest-asyncio
 
     - name: Установка переменных окружения для тестов
       env:
@@ -67,7 +65,6 @@ jobs:
       run: |
         echo "ES_HOST=localhost" >> $GITHUB_ENV
         echo "ES_PORT=9200" >> $GITHUB_ENV
-        # Передаем ключ OpenAI в переменные окружения для всех последующих шагов
         echo "OPENAI_API_KEY=${OPENAI_API_KEY}" >> $GITHUB_ENV
 
     - name: Ожидание запуска Elasticsearch
