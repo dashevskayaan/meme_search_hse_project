@@ -1,8 +1,5 @@
 import pytest
-import sqlite3
-import json
 from unittest.mock import patch, MagicMock, ANY
-from elasticsearch import helpers
 
 from elasticsearch_utils import ElasticsearchManager
 
