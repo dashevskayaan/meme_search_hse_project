@@ -310,7 +310,9 @@ async def process_count(message: types.Message, state: FSMContext):
     topic = user_data['topic']
 
     es_manager = ElasticsearchManager()
+
     search_results = es_manager.search_with_hybrid(topic, k=100, alpha=0.5)
+
     meme_ids = [int(r['id']) for r in search_results]
 
     if not meme_ids:
@@ -418,7 +420,7 @@ async def process_action(message: types.Message, state: FSMContext):
     else:
         await message.answer(Texts.use_buttons)
 
-async def main():
+async def main():    
     """
     Основная асинхронная функция запуска Telegram-бота.
     В начале инициализирует Elasticsearch и индекс мемов.
@@ -434,9 +436,11 @@ async def main():
     """
     logger.info("Инициализация зависимостей...")
     es_manager = ElasticsearchManager()
+    
     es_manager.sync_db_to_elasticsearch()
     es_manager.initialize_elasticsearch()
     logger.info("Инициализация завершена. Запуск бота...")
+
     await dp.start_polling(bot)
 
 if __name__ == '__main__':

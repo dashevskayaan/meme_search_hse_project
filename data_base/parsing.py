@@ -5,7 +5,13 @@ import requests
 
 current_id = 0
 
-def load_tags():
+def load_tags() -> dict:
+    """
+    Загружает словарь тегов из файла tags_full.txt.
+    Читает файл построчно, извлекает ID и соответствующие теги,
+    сохраняя их в словарь.
+    """
+
     tags_dict = {}
     try:
         with open("tags_full.txt", "r", encoding="utf-8") as f:
@@ -17,7 +23,14 @@ def load_tags():
         print("Ошибка при загрузке тегов:", e)
     return tags_dict
 
-def parse_data(u):
+def parse_data(u: str) -> tuple:
+
+    """
+    Парсит данные мема с указанного URL.
+    Извлекает название, описание, URL изображения и теги (если есть)
+    для мема с заданной страницы.
+    """
+
     global current_id 
     
     name = '-'
@@ -69,13 +82,20 @@ def parse_data(u):
 
     return index_meta, record
 
-def parse_href(url,tags_dict):
+def parse_href(url: str, tags_dict: dict) -> None:
+
+    """
+    Обрабатывает страницу со списком мемов и сохраняет данные в файл.
+    Находит все статьи на странице, извлекает ссылки на мемы,
+    парсит каждый мем и сохраняет данные в файл memes_base.json.
+    """
+
     response = requests.get(url)
     html = response.text
     soup = bs(html, 'html.parser')
     container = soup.find('div', class_="bb-col col-content")
     posts = container.find_all("article", class_="post")
-    with open("json.json", "a", encoding="utf-8") as f:
+    with open("memes_base.json", "a", encoding="utf-8") as f:
         for post in posts:
             a_tag = post.find("a", href=True)
             if a_tag:
@@ -83,8 +103,6 @@ def parse_href(url,tags_dict):
                 f.write(f"{index_meta}\n{record}\n")
         f.write("\n")
         
-def search(es_object, index_name, search):
-    return es_object.search(index=index_name, body=search)
 
 if __name__ == '__main__':
     base_url = "https://memepedia.ru/category/memes/pic/page/"
