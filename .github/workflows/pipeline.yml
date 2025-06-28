@@ -33,3 +33,45 @@ jobs:
     - name: Проверка синтаксиса и стиля с помощью ruff
       run: |
         ruff check .
+
+  run-tests:
+    runs-on: ubuntu-latest
+    services:
+      elasticsearch:
+        image: elasticsearch:8.14.0
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+        ports:
+          - 9200:9200
+          
+    steps:
+    - name: Загрузка репозитория
+      uses: actions/checkout@v4
+
+    - name: Установка Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Установка зависимостей
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Установка переменных окружения для тестов
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        echo "ES_HOST=localhost" >> $GITHUB_ENV
+        echo "ES_PORT=9200" >> $GITHUB_ENV
+        echo "OPENAI_API_KEY=${OPENAI_API_KEY}" >> $GITHUB_ENV
+
+    - name: Ожидание запуска Elasticsearch
+      run: |
+        timeout 30s bash -c 'until curl -s "http://localhost:9200" > /dev/null; do echo "Waiting for Elasticsearch..."; sleep 2; done'
+        echo "Elasticsearch is up!"
+
+    - name: Запуск тестов
+      run: |
+        python -m pytest
