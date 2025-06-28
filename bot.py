@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import sqlite3
+import asyncio 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -22,11 +23,14 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-es_manager = ElasticsearchManager()
-es_manager.initialize_elasticsearch()
-es_manager.sync_db_to_elasticsearch()
-
 class MemeStates(StatesGroup):
+    """
+    Класс состояний конечного автомата (FSM) для управления этапами диалога с пользователем:
+      - waiting_for_topic: бот ожидает, что пользователь введёт тему для поиска мемов
+      - waiting_for_count: бот ожидает число, сколько мемов показать по теме
+      - waiting_for_action: бот ожидает, какое действие выбрать дальше (ещё мемы, новая тема и т.д.)
+      - waiting_for_meme_number: бот ожидает ввод номера мема для показа по id
+    """
     waiting_for_topic = State()
     waiting_for_count = State()
     waiting_for_action = State()
@@ -34,7 +38,21 @@ class MemeStates(StatesGroup):
 
 async def send_meme_with_description(chat_id: int, meme_data: tuple) -> bool:
     """
-    Отправляет мем (фото + описание) пользователю по chat_id.
+    Отправляет пользователю фотографию мема и его описание.
+
+    Args:
+        chat_id (int): Идентификатор чата Telegram, куда отправлять мем.
+        meme_data (tuple): Кортеж из четырёх элементов:
+            - meme_id (int): id мема в базе (не используется напрямую)
+            - image (str): ссылка на изображение мема (URL)
+            - name (str): название мема (отправляется в подписи к фото)
+            - description (str): текстовое описание мема (отправляется отдельным сообщением)
+
+    Returns:
+        bool: True — если мем был успешно отправлен (фото и описание),
+              False — если при отправке возникла ошибка (например, невалидная ссылка).
+
+    Функция нужна для компактной и единой логики отправки мемов, чтобы не дублировать код по всему проекту.
     """
     meme_id, image, name, description = meme_data
     try:
@@ -56,7 +74,21 @@ async def send_meme_with_description(chat_id: int, meme_data: tuple) -> bool:
 
 async def send_meme_by_id(chat_id: int, meme_id: int):
     """
-    Отправляет мем по его ID. ID корректируется по модулю 1122, если выходит за пределы.
+    Находит и отправляет мем по его номеру из базы, с автоматической коррекцией некорректных номеров.
+
+    Args:
+        chat_id (int): id чата Telegram, куда отправлять мем.
+        meme_id (int): номер мема, запрошенный пользователем (может выходить за диапазон).
+
+    Returns:
+        None
+
+    Алгоритм:
+        1. Корректирует meme_id, чтобы он всегда был от 1 до 1122 (если пользователь ввёл 0 или слишком большое число).
+        2. Ищет мем с этим id в базе данных SQLite ('memes.db').
+        3. Если мем найден — вызывает send_meme_with_description, иначе пишет пользователю "Мем не найден!".
+
+    Эта функция нужна для удобной выдачи мемов по номеру и обработки ошибок пользователя.
     """
     actual_id = meme_id if 1 <= meme_id <= 1122 else meme_id % 1122 or 1122
     with sqlite3.connect('memes.db') as conn:
@@ -74,7 +106,16 @@ async def send_meme_by_id(chat_id: int, meme_id: int):
 @dp.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     """
-    Обрабатывает команду /start — показывает стартовое сообщение и кнопки.
+    Обрабатывает команду /start — сбрасывает состояние пользователя, отправляет приветственное сообщение и основное меню.
+
+    Args:
+        message (Message): Telegram сообщение, содержащее команду /start.
+        state (FSMContext): Контекст состояния FSM пользователя (для сброса).
+
+    Returns:
+        None
+
+    Функция нужна для "чистого старта" бота и показа начальных кнопок.
     """
     await state.clear()
     builder = ReplyKeyboardBuilder()
@@ -89,7 +130,17 @@ async def cmd_start(message: Message, state: FSMContext):
 @dp.message(F.text == Texts.start_search)
 async def handle_start_search(message: Message, state: FSMContext):
     """
-    Начинает процесс поиска мемов по теме.
+    Обрабатывает нажатие кнопки "Поиск по теме".
+    Переводит пользователя в состояние ввода темы для поиска.
+
+    Args:
+        message (Message): Telegram сообщение пользователя.
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Зачем: чтобы дальше получать от пользователя тему поиска мемов.
     """
     await message.answer(Texts.enter_topic, reply_markup=ReplyKeyboardRemove())
     await state.set_state(MemeStates.waiting_for_topic)
@@ -97,7 +148,17 @@ async def handle_start_search(message: Message, state: FSMContext):
 @dp.message(F.text == Texts.random_meme_button)
 async def handle_random_meme_button(message: types.Message, state: FSMContext):
     """
-    Обрабатывает кнопку случайного мема — просит ввести номер мема.
+    Обрабатывает нажатие кнопки "Случайный мем".
+    Просит пользователя ввести номер мема для показа по id.
+
+    Args:
+        message (types.Message): Telegram сообщение пользователя.
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Эта функция нужна для запуска ветки случайного выбора мема по номеру.
     """
     await message.answer(Texts.enter_number_for_meme, reply_markup=ReplyKeyboardRemove())
     await state.set_state(MemeStates.waiting_for_meme_number)
@@ -105,7 +166,17 @@ async def handle_random_meme_button(message: types.Message, state: FSMContext):
 @dp.message(F.text.isdigit(), MemeStates.waiting_for_meme_number)
 async def handle_meme_number_input(message: types.Message, state: FSMContext):
     """
-    Получает номер мема от пользователя и отправляет соответствующий мем.
+    Обрабатывает ввод пользователем номера мема.
+    Отправляет пользователю соответствующий мем и переходит к выбору дальнейшего действия.
+
+    Args:
+        message (types.Message): Сообщение пользователя, содержащее число.
+        state (FSMContext): Контекст FSM.
+
+    Returns:
+        None
+
+    Зачем: основной обработчик случайного выбора мема по номеру.
     """
     number = int(message.text)
     await send_meme_by_id(message.chat.id, number)
@@ -114,7 +185,17 @@ async def handle_meme_number_input(message: types.Message, state: FSMContext):
 @dp.message(Command("random_meme"))
 async def cmd_random_meme(message: types.Message, state: FSMContext):
     """
-    Обрабатывает команду /random_meme — переводит в состояние ввода номера мема.
+    Обрабатывает команду /random_meme.
+    Запрашивает у пользователя номер мема.
+
+    Args:
+        message (types.Message): Telegram сообщение пользователя.
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Зачем: поддержка команды для теста или быстрого доступа к случайному номеру.
     """
     await state.set_state(MemeStates.waiting_for_meme_number)
     await message.answer("Введите число:", reply_markup=ReplyKeyboardRemove())
@@ -122,14 +203,33 @@ async def cmd_random_meme(message: types.Message, state: FSMContext):
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message, state: FSMContext):
     """
-    Обрабатывает команду /help — отправляет инструкцию.
+    Обрабатывает команду /help.
+    Показывает справку по возможностям бота и действиям пользователя.
+
+    Args:
+        message (types.Message): Telegram сообщение пользователя.
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Зачем: помогает разобраться новым пользователям с командами.
     """
     await message.answer(Texts.help_message, parse_mode='HTML')
     await ask_for_action(message, state)
 
 async def ask_for_action(message: types.Message, state: FSMContext):
     """
-    Показывает пользователю клавиатуру с действиями
+    Отправляет пользователю меню дальнейших действий после показа мемов.
+
+    Args:
+        message (types.Message): Сообщение Telegram, после которого нужно предложить выбор действия.
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Меню даёт кнопки: "Показать ещё", "Новая тема", "Завершить поиск". Используется во всех ключевых точках сценария.
     """
     builder = ReplyKeyboardBuilder()
     builder.button(text=Texts.more_memes)
@@ -144,7 +244,18 @@ async def ask_for_action(message: types.Message, state: FSMContext):
 @dp.message(MemeStates.waiting_for_topic)
 async def process_topic(message: types.Message, state: FSMContext):
     """
-    Обрабатывает введённую пользователем тему для поиска мемов.
+    Обрабатывает ввод темы поиска мемов от пользователя.
+    Если тема пуста — просит ввести снова.
+    Если тема валидная — переходит к ожиданию ввода количества мемов.
+
+    Args:
+        message (types.Message): Сообщение с текстом темы поиска.
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Важно: на этом этапе тема только сохраняется и пользователь видит напоминание о дальнейших шагах.
     """
     topic = message.text.strip()
     if not topic:
@@ -161,8 +272,27 @@ async def process_topic(message: types.Message, state: FSMContext):
 @dp.message(MemeStates.waiting_for_count)
 async def process_count(message: types.Message, state: FSMContext):
     """
-    Обрабатывает количество запрошенных мемов, выполняет поиск через Elasticsearch
-    и отправляет мемы по результатам поиска.
+    Обрабатывает ввод количества мемов по выбранной теме.
+    Выполняет поиск через ElasticsearchManager и отправляет найденные мемы пользователю.
+
+    Args:
+        message (types.Message): Сообщение пользователя (ожидается число).
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Детали:
+        - Если введено не число, число < 1, либо > 20 — просит ввести корректное число.
+        - Запускает гибридный поиск (сначала text, потом knn) по теме.
+        - Находит реальные мемы в базе и фильтрует уже показанные пользователю.
+        - Если ничего не найдено — уведомляет пользователя.
+        - Если мемов меньше, чем просили — показывает сколько удалось найти.
+        - После отправки мемов — предлагает дальнейшие действия.
+
+    Использует: 
+        - es_manager.search_with_hybrid
+        - shown_memes — чтобы не повторять уже показанные пользователю мемы.
     """
     try:
         requested_count = int(message.text)
@@ -179,14 +309,15 @@ async def process_count(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
     topic = user_data['topic']
 
-    search_results = es_manager.search_with_hybrid(topic, k=100)
+    es_manager = ElasticsearchManager()
+    search_results = es_manager.search_with_hybrid(topic, k=100, alpha=0.5)
     meme_ids = [int(r['id']) for r in search_results]
 
     if not meme_ids:
         await message.answer(Texts.no_memes_found)
         await state.set_state(MemeStates.waiting_for_topic)
         return
-
+    
     with sqlite3.connect('memes.db') as conn:
         cursor = conn.cursor()
         placeholders = ','.join(['?'] * len(meme_ids))
@@ -245,7 +376,22 @@ async def process_count(message: types.Message, state: FSMContext):
 @dp.message(MemeStates.waiting_for_action)
 async def process_action(message: types.Message, state: FSMContext):
     """
-    Обрабатывает выбор действия пользователя после получения мемов.
+    Обрабатывает выбор пользователя после выдачи мемов: показать ещё, начать новый поиск, завершить работу.
+
+    Args:
+        message (types.Message): Сообщение пользователя (выбор действия или кнопка).
+        state (FSMContext): Контекст состояния FSM пользователя.
+
+    Returns:
+        None
+
+    Логика:
+        - "Показать ещё" — считает уже просмотренные мемы и предлагает ввести число для показа новых.
+        - "Новая тема" или "Поиск по теме" — сбрасывает просмотренные мемы, запрашивает новую тему.
+        - "Завершить поиск" — завершает сессию поиска, сбрасывает состояние.
+        - Любой другой ввод — просит воспользоваться кнопками.
+
+    Эта функция связывает все этапы диалога в единую цепочку.
     """
     if message.text == Texts.more_memes:
         user_data = await state.get_data()
@@ -274,11 +420,25 @@ async def process_action(message: types.Message, state: FSMContext):
 
 async def main():
     """
-    Запускает polling Telegram-бота.
+    Основная асинхронная функция запуска Telegram-бота.
+    В начале инициализирует Elasticsearch и индекс мемов.
+    Далее запускает цикл приёма и обработки входящих сообщений через long polling.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Эта функция служит точкой входа для всего приложения.
     """
+    logger.info("Инициализация зависимостей...")
+    es_manager = ElasticsearchManager()
+    es_manager.sync_db_to_elasticsearch()
+    es_manager.initialize_elasticsearch()
+    logger.info("Инициализация завершена. Запуск бота...")
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
     import asyncio
     asyncio.run(main())
-    
