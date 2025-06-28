@@ -1,5 +1,4 @@
 from minio import Minio
-from minio.error import S3Error
 import requests
 import os
 from urllib.parse import urlparse
@@ -15,7 +14,13 @@ minio_client = Minio(
     secure=True
 )
 
-def upload_with_minio(url, bucket_name, object_name):
+def upload_with_minio(url: str, bucket_name: str, object_name: str) -> bool:
+    """
+    Загружает файл по URL в хранилище
+    Скачивает файл по указанному URL и загружает его в указанный бакет
+    с заданным именем объекта. Возвращает статус операции (True/False)
+    """
+
     try:
         response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status()
@@ -32,7 +37,13 @@ def upload_with_minio(url, bucket_name, object_name):
         print(f"Ошибка при загрузке {url}: {e}")
         return False
 
-def process_image_urls(file_path, bucket_name):
+def process_image_urls(file_path: str, bucket_name: str) -> None:
+    """
+    Обрабатывает файл с URL изображений и загружает их в хранилище
+    Читает JSON-файл, содержащий URL изображений, извлекает ссылки на изображения
+    и загружает каждое изображение в указанный бакет. Имена объектов
+    формируются автоматически на основе порядка изображений в файле.
+    """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             image_urls = []
