@@ -102,7 +102,7 @@ async def test_process_count_with_mock_db(mock_message, mock_state):
         await process_count(mock_message, mock_state)
 
         mock_es_class.assert_called_once()
-        es_mock_instance.search_with_hybrid.assert_called_once_with('тест', k=100)
+        es_mock_instance.search_with_hybrid.assert_called_once_with('тест', k=100, alpha=0.5)
         assert mock_message.answer.call_count > 0
 
 
